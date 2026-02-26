@@ -83,8 +83,8 @@ export function ShowSeasons() {
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">{seriesName}</h1>
-        <Link to="/library">
-          <Button variant="secondary">← Back to Library</Button>
+        <Link to={`/library/${localStorage.getItem("parent-id")}`}>
+          <Button variant="secondary">← Back to Series</Button>
         </Link>
       </div>
 

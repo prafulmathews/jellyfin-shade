@@ -32,8 +32,8 @@ export function MediaItems() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userId = localStorage.getItem("userId");
+  localStorage.setItem("parent-id", parentId ?? "");
 
-  // ✅ Default params (can be customized later)
   const defaultParams: QueryOptions = {
     userId: userId ?? "",
     // sortBy: "SortName",
@@ -107,7 +107,6 @@ export function MediaItems() {
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
           <Link key={item.Id} to={`/item/${item.Id}`}>
-            getTvShowsApi
             <Card
               key={item.Id}
               className="cursor-pointer transition-all hover:shadow-md"
