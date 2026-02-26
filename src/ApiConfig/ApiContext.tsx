@@ -14,14 +14,10 @@ interface JellyfinContextValue {
 const JellyfinApiContext = createContext<JellyfinContextValue | null>(null);
 
 interface Props {
-  serverUrl: string;
   children: ReactNode;
 }
 
-export const JellyfinApiProvider: React.FC<Props> = ({
-  serverUrl,
-  children,
-}) => {
+export const JellyfinApiProvider: React.FC<Props> = ({ children }) => {
   // ✅ Create Jellyfin ONCE using lazy init (NO effect)
   const [jellyfin] = useState(() => {
     const key = "jellyfin-device-id";
@@ -59,8 +55,8 @@ export const JellyfinApiProvider: React.FC<Props> = ({
 
   // ✅ Derived value (NO state, NO effect)
   const api = useMemo<Api | null>(() => {
-    return jellyfin.createApi(serverUrl, token ?? undefined);
-  }, [jellyfin, serverUrl, token]);
+    return jellyfin.createApi("/jellyfin", token ?? undefined);
+  }, [jellyfin, token]);
 
   return (
     <JellyfinApiContext.Provider value={{ jellyfin, api, token, setToken }}>
