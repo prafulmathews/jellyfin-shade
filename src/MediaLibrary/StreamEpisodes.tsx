@@ -33,7 +33,7 @@ export function EpisodePlayer() {
         // });
 
         // Build your actual streaming URL
-        const url = `${serverUrl}/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`;
+        const url = `/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`;
         console.log("Constructed video URL:", url);
         setVideoUrl(url);
       } catch (err: any) {
@@ -43,7 +43,7 @@ export function EpisodePlayer() {
     };
 
     fetchStreamUrl();
-  }, [serverUrl, token, episodeId, api]);
+  }, [token, episodeId, api]);
 
   if (!videoUrl) {
     return (
