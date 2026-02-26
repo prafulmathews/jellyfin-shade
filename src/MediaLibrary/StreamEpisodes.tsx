@@ -10,10 +10,8 @@ export function EpisodePlayer() {
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const serverUrl = api?.configuration?.basePath?.replace(/\/$/, "");
-
   useEffect(() => {
-    if (!serverUrl || !token || !episodeId) return;
+    if (!token || !episodeId) return;
 
     const fetchStreamUrl = async () => {
       try {
