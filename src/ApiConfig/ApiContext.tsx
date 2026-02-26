@@ -55,7 +55,7 @@ export const JellyfinApiProvider: React.FC<Props> = ({ children }) => {
 
   // ✅ Derived value (NO state, NO effect)
   const api = useMemo<Api | null>(() => {
-    return jellyfin.createApi("/jellyfin", token ?? undefined);
+    return jellyfin.createApi("/", token ?? undefined);
   }, [jellyfin, token]);
 
   return (
