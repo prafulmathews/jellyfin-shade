@@ -22,6 +22,7 @@ export function ShowSeasons() {
     if (!api || !userId || !id) return;
 
     const fetchSeasons = async () => {
+      console.log("Fetching seasons for series with ID:", id);
       setLoading(true);
       try {
         const response = await getTvShowsApi(api).getSeasons({
