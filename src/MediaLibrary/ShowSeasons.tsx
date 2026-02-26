@@ -16,11 +16,10 @@ export function ShowSeasons() {
   const [seriesName, setSeriesName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   console.log("ShowSeasons component rendered with id:", id);
-  const serverUrl = api?.configuration?.basePath?.replace(/\/$/, ""); // get Jellyfin base URL
   const userId = localStorage.getItem("userId");
 
   useEffect(() => {
-    if (!api || !serverUrl || !userId || !id) return;
+    if (!api || !userId || !id) return;
 
     const fetchSeasons = async () => {
       setLoading(true);
@@ -46,7 +45,7 @@ export function ShowSeasons() {
     };
 
     fetchSeasons();
-  }, [serverUrl, userId, id, api]);
+  }, [userId, id, api]);
 
   if (loading) {
     return (
