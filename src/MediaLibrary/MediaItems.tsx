@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useJellyfinApi } from "../ApiConfig/ApiContext";
 import { Button } from "@/components/ui/button";
@@ -112,17 +112,20 @@ export function MediaItems() {
 
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
-          <Card
-            key={item.Id}
-            className="cursor-pointer transition-all hover:shadow-md"
-          >
-            <CardHeader>
-              <CardTitle className="truncate">{item.Name}</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              <p>Type: {item.Type}</p>
-            </CardContent>
-          </Card>
+          <Link key={item.Id} to={`/item/${item.Id}`}>
+            getTvShowsApi
+            <Card
+              key={item.Id}
+              className="cursor-pointer transition-all hover:shadow-md"
+            >
+              <CardHeader>
+                <CardTitle className="truncate">{item.Name}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                <p>Type: {item.Type}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

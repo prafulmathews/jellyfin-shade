@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { JellyfinApiProvider } from "./ApiConfig/ApiContext";
 import { LoginForm } from "./LoginForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +10,12 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Router, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { MediaLibrary } from "./MediaLibrary/MediaLibrary";
 import { MediaItems } from "./MediaLibrary/MediaItems";
+import { ShowSeasons } from "./MediaLibrary/ShowSeasons";
+import { SeasonEpisodes } from "./MediaLibrary/ShowEpisodes";
+import { EpisodePlayer } from "./MediaLibrary/StreamEpisodes";
 
 export default function App() {
   const [serverUrl, setServerUrl] = useState<string | null>(
@@ -74,6 +76,9 @@ export default function App() {
       <Route path="/" element={<LoginForm />} />
       <Route path="/library" element={<MediaLibrary />} />
       <Route path="/library/:parentId" element={<MediaItems />} />
+      <Route path="/item/:id" element={<ShowSeasons />} />
+      <Route path="/item/:id/:seasonId" element={<SeasonEpisodes />} />
+      <Route path="/episode/:episodeId" element={<EpisodePlayer />} />
     </Routes>
   );
 }

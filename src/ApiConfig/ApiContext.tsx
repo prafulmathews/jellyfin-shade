@@ -11,8 +11,6 @@ import { v4 as uuidv4 } from "uuid";
 interface JellyfinContextValue {
   jellyfin: Jellyfin | null;
   api: any | null;
-  loading: boolean;
-  error?: string;
   token: string | null;
   setToken: (token: string | null) => void;
 }
@@ -20,7 +18,6 @@ interface JellyfinContextValue {
 const JellyfinApiContext = createContext<JellyfinContextValue>({
   jellyfin: null,
   api: null,
-  loading: true,
   token: null,
   setToken: () => {},
 });
@@ -36,8 +33,6 @@ export const JellyfinApiProvider: React.FC<Props> = ({
 }) => {
   const [jellyfin, setJellyfin] = useState<Jellyfin | null>(null);
   const [api, setApi] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
   const [token, setTokenState] = useState<string | null>(
     sessionStorage.getItem("jellyfin-token"),
   );
@@ -75,9 +70,7 @@ export const JellyfinApiProvider: React.FC<Props> = ({
   }, [jellyfin, serverUrl, token]);
 
   return (
-    <JellyfinApiContext.Provider
-      value={{ jellyfin, api, loading, error, token, setToken }}
-    >
+    <JellyfinApiContext.Provider value={{ jellyfin, api, token, setToken }}>
       {children}
     </JellyfinApiContext.Provider>
   );

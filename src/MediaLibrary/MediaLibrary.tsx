@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useJellyfinApi } from "../ApiConfig/ApiContext";
-import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api/library-api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserViewsApi } from "@jellyfin/sdk/lib/utils/api/user-views-api";
@@ -13,7 +12,7 @@ interface MediaFolder {
 }
 
 export function MediaLibrary() {
-  const { api, loading, token } = useJellyfinApi();
+  const { api, token } = useJellyfinApi();
   const [folders, setFolders] = useState<MediaFolder[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +39,7 @@ export function MediaLibrary() {
     fetchUserMedia();
   }, [api, token]);
 
-  if (loading || isFetching) {
+  if (isFetching) {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {[...Array(6)].map((_, i) => (
@@ -77,8 +76,8 @@ export function MediaLibrary() {
       default:
         return "Unknown";
     }
-  }
-  
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <h1 className="text-2xl font-semibold mb-6">Media Libraries</h1>
