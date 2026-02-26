@@ -5,27 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
-interface MediaItem {
-  Id: string;
-  Name: string;
-  Type: string;
-  parentId?: number;
-}
-
-interface SortOrder {
-  Ascending?: "Ascending";
-  Descending?: "Descending";
-}
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
+import type { SortOrder } from "@jellyfin/sdk/lib/generated-client/models/sort-order";
+import type { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
+import type { ItemSortBy } from "@jellyfin/sdk/lib/generated-client/models/item-sort-by";
+import type { ImageType } from "@jellyfin/sdk/lib/generated-client/models/image-type";
 
 interface QueryOptions {
   userId?: string;
-  sortBy?: string;
+  sortBy?: ItemSortBy[];
   sortOrder?: SortOrder[];
   IncludeItemTypes?: string;
   recursive?: boolean;
-  fields?: string;
+  fields?: ItemFields[];
   ImageTypeLimit?: number;
-  enableImageTypes?: string;
+  enableImageTypes?: ImageType[];
   startIndex?: number;
   limit?: number;
   parentId?: string;
@@ -34,7 +28,7 @@ interface QueryOptions {
 export function MediaItems() {
   const { api } = useJellyfinApi();
   const { parentId } = useParams(); // from /library/:parentId
-  const [items, setItems] = useState<MediaItem[]>([]);
+  const [items, setItems] = useState<BaseItemDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userId = localStorage.getItem("userId");
@@ -79,7 +73,7 @@ export function MediaItems() {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-[160px] w-full rounded-md" />
+          <Skeleton key={i} className="h-40 w-full rounded-md" />
         ))}
       </div>
     );

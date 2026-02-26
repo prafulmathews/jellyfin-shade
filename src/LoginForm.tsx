@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { MediaLibrary } from "./MediaLibrary/MediaLibrary";
 
 export function LoginForm() {
-  const { api, loading, error, setToken, token } = useJellyfinApi();
+  const { api, setToken, token } = useJellyfinApi();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -36,33 +36,31 @@ export function LoginForm() {
         setAuthError("No access token returned.");
       }
     } catch (err) {
-      setAuthError("Login failed — check credentials.");
+      setAuthError(`Login failed — check credentials: ${err}`);
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const handleLogout = () => setToken(null);
+  // if (loading)
+  //   return (
+  //     <div className="flex h-screen items-center justify-center text-muted-foreground">
+  //       Connecting to server...
+  //     </div>
+  //   );
 
-  if (loading)
-    return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Connecting to server...
-      </div>
-    );
-
-  if (error)
-    return (
-      <div className="flex h-screen items-center justify-center text-red-500">
-        Failed to connect: {error}
-      </div>
-    );
+  // if (error)
+  //   return (
+  //     <div className="flex h-screen items-center justify-center text-red-500">
+  //       Failed to connect: {error}
+  //     </div>
+  //   );
 
   if (token) return <MediaLibrary />;
 
   return (
     <div className="flex h-screen items-center justify-center bg-background text-foreground">
-      <Card className="w-[360px] shadow-md">
+      <Card className="w-90 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
             Login to Jellyfin

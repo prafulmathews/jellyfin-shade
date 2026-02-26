@@ -1,26 +1,17 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Jellyfin } from "@jellyfin/sdk";
+import type { Api } from "@jellyfin/sdk/lib/api";
 import { v4 as uuidv4 } from "uuid";
 
 interface JellyfinContextValue {
-  jellyfin: Jellyfin | null;
-  api: any | null;
+  jellyfin: Jellyfin;
+  api: Api | null;
   token: string | null;
   setToken: (token: string | null) => void;
 }
 
-const JellyfinApiContext = createContext<JellyfinContextValue>({
-  jellyfin: null,
-  api: null,
-  token: null,
-  setToken: () => {},
-});
+const JellyfinApiContext = createContext<JellyfinContextValue | null>(null);
 
 interface Props {
   serverUrl: string;
@@ -31,42 +22,44 @@ export const JellyfinApiProvider: React.FC<Props> = ({
   serverUrl,
   children,
 }) => {
-  const [jellyfin, setJellyfin] = useState<Jellyfin | null>(null);
-  const [api, setApi] = useState<any | null>(null);
+  // ✅ Create Jellyfin ONCE using lazy init (NO effect)
+  const [jellyfin] = useState(() => {
+    const key = "jellyfin-device-id";
+    let deviceId = localStorage.getItem(key);
+
+    if (!deviceId) {
+      deviceId = uuidv4();
+      localStorage.setItem(key, deviceId);
+    }
+
+    return new Jellyfin({
+      clientInfo: {
+        name: "jellyfin-shade",
+        version: "1.0.0",
+      },
+      deviceInfo: {
+        name: "browser",
+        id: deviceId,
+      },
+    });
+  });
+
   const [token, setTokenState] = useState<string | null>(
     sessionStorage.getItem("jellyfin-token"),
   );
 
   const setToken = (token: string | null) => {
     setTokenState(token);
-    if (token) sessionStorage.setItem("jellyfin-token", token);
-    else sessionStorage.removeItem("jellyfin-token");
+    if (token) {
+      sessionStorage.setItem("jellyfin-token", token);
+    } else {
+      sessionStorage.removeItem("jellyfin-token");
+    }
   };
 
-  useEffect(() => {
-    const getOrCreateDeviceId = () => {
-      const key = "jellyfin-device-id";
-      let id = localStorage.getItem(key);
-      if (!id) {
-        id = uuidv4();
-        localStorage.setItem(key, id);
-      }
-      return id;
-    };
-
-    const jf = new Jellyfin({
-      clientInfo: { name: "jellyfin-shade", version: "1.0.0" },
-      deviceInfo: { name: "browser", id: getOrCreateDeviceId() },
-    });
-
-    setJellyfin(jf);
-  }, []);
-
-  useEffect(() => {
-    if (!jellyfin) return;
-
-    const apiInstance = jellyfin.createApi(serverUrl, token ?? undefined);
-    setApi(apiInstance);
+  // ✅ Derived value (NO state, NO effect)
+  const api = useMemo<Api | null>(() => {
+    return jellyfin.createApi(serverUrl, token ?? undefined);
   }, [jellyfin, serverUrl, token]);
 
   return (
@@ -76,4 +69,10 @@ export const JellyfinApiProvider: React.FC<Props> = ({
   );
 };
 
-export const useJellyfinApi = () => useContext(JellyfinApiContext);
+export const useJellyfinApi = () => {
+  const ctx = useContext(JellyfinApiContext);
+  if (!ctx) {
+    throw new Error("useJellyfinApi must be used within JellyfinApiProvider");
+  }
+  return ctx;
+};

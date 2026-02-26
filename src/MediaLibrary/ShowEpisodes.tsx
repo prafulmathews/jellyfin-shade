@@ -5,19 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTvShowsApi } from "@jellyfin/sdk/lib/utils/api/tv-shows-api";
-interface Episode {
-  Id: string;
-  Name: string;
-  IndexNumber?: number;
-  Overview?: string;
-  RunTimeTicks?: number;
-  PremiereDate?: string;
-}
+import type { ItemFields } from "@jellyfin/sdk/lib/generated-client";
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 
 export function SeasonEpisodes() {
   const { api } = useJellyfinApi();
   const { id, seasonId } = useParams();
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [episodes, setEpisodes] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,13 +24,18 @@ export function SeasonEpisodes() {
       setLoading(true);
       try {
         const res = await getTvShowsApi(api).getEpisodes({
-          seriesId: id,
+          seriesId: id ?? "",
           userId: userId,
           seasonId: seasonId,
-          fields:
-            "ItemCounts,PrimaryImageAspectRatio,CanDelete,MediaSourceCount,Overview",
+          fields: [
+            "ItemCounts",
+            "PrimaryImageAspectRatio",
+            "CanDelete",
+            "MediaSourceCount",
+            "Overview",
+          ] as ItemFields[],
         });
-        setEpisodes(res.data.Items || []);
+        setEpisodes(res.data.Items ?? []);
         setError(null);
       } catch (err: any) {
         console.error(err);
@@ -53,7 +52,7 @@ export function SeasonEpisodes() {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-[160px] w-full rounded-md" />
+          <Skeleton key={i} className="h-40 w-full rounded-md" />
         ))}
       </div>
     );

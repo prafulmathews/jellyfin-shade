@@ -5,23 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTvShowsApi } from "@jellyfin/sdk/lib/utils/api/tv-shows-api";
-
-// We can use plain fetch for this endpoint for simplicity
-// Jellyfin SDK doesn't yet have a "show seasons" helper
-
-interface Season {
-  Id: string;
-  Name: string;
-  IndexNumber?: number;
-  CanDelete?: boolean;
-  MediaSourceCount?: number;
-  EpisodeCount?: number;
-}
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
+import type { ItemFields } from "@jellyfin/sdk/lib/generated-client";
 
 export function ShowSeasons() {
   const { api } = useJellyfinApi();
   const { id } = useParams(); // seriesId
-  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [seasons, setSeasons] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [seriesName, setSeriesName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,26 +20,23 @@ export function ShowSeasons() {
   const userId = localStorage.getItem("userId");
 
   useEffect(() => {
-    if (!serverUrl || !userId || !id) return;
+    if (!api || !serverUrl || !userId || !id) return;
 
     const fetchSeasons = async () => {
       setLoading(true);
       try {
-        // const url = new URL(`${serverUrl}/Shows/${id}/Seasons`);
-        // url.searchParams.set("userId", userId);
-        // url.searchParams.set(
-        //   "Fields",
-        //   "ItemCounts,PrimaryImageAspectRatio,CanDelete,MediaSourceCount"
-        // );
-
         const response = await getTvShowsApi(api).getSeasons({
-          userId: userId,
+          userId,
           seriesId: id,
-          fields:
-            "ItemCounts,PrimaryImageAspectRatio,CanDelete,MediaSourceCount",
+          fields: [
+            "ItemCounts",
+            "PrimaryImageAspectRatio",
+            "CanDelete",
+            "MediaSourceCount",
+          ] as ItemFields[],
         });
         setSeasons(response.data.Items || []);
-        setSeriesName(response.data.Items[0].SeriesName || "Show");
+        setSeriesName(response.data.Items?.[0]?.SeriesName ?? "Show");
         setError(null);
       } catch (e: any) {
         setError(e.message || "Error fetching seasons.");
@@ -65,7 +52,7 @@ export function ShowSeasons() {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-[160px] w-full rounded-md" />
+          <Skeleton key={i} className="h-40 w-full rounded-md" />
         ))}
       </div>
     );
@@ -102,24 +89,19 @@ export function ShowSeasons() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {seasons.map((season) => (
-          <Link key={season.Id} to={`/item/${id}/${season.Id}`}>
-            <Card
-              key={season.Id}
-              className="cursor-pointer transition-all hover:shadow-md"
-            >
-              <CardHeader>
-                <CardTitle className="truncate">
-                  {season.Name || `Season ${season.IndexNumber}`}
-                </CardTitle>
-              </CardHeader>
-              {/* <CardContent className="text-sm text-muted-foreground">
-              <p>Episodes: {season.EpisodeCount ?? 0}</p>
-              <p>Can Delete: {season.CanDelete ? "Yes" : "No"}</p>
-            </CardContent> */}
-            </Card>
-          </Link>
-        ))}
+        {seasons.map((season) =>
+          season.Id ? (
+            <Link key={season.Id} to={`/item/${id}/${season.Id}`}>
+              <Card className="cursor-pointer transition-all hover:shadow-md">
+                <CardHeader>
+                  <CardTitle className="truncate">
+                    {season.Name || `Season ${season.IndexNumber}`}
+                  </CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
+          ) : null,
+        )}
       </div>
     </div>
   );

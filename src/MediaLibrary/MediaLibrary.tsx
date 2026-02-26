@@ -4,16 +4,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserViewsApi } from "@jellyfin/sdk/lib/utils/api/user-views-api";
 import { Link } from "react-router-dom";
-interface MediaFolder {
-  Id: string;
-  Name: string;
-  CollectionType: string;
-  ImageTags?: Record<string, string>;
-}
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 
 export function MediaLibrary() {
   const { api, token } = useJellyfinApi();
-  const [folders, setFolders] = useState<MediaFolder[]>([]);
+  const [folders, setFolders] = useState<BaseItemDto[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +38,7 @@ export function MediaLibrary() {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-[120px] w-full rounded-md" />
+          <Skeleton key={i} className="h-30 w-full rounded-md" />
         ))}
       </div>
     );
@@ -89,7 +84,7 @@ export function MediaLibrary() {
                 <CardTitle className="truncate">{folder.Name}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p>Collection: {collectionType(folder.CollectionType)}</p>
+                <p>Collection: {collectionType(folder.CollectionType ?? "")}</p>
               </CardContent>
             </Card>
           </Link>
