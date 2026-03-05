@@ -1,22 +1,29 @@
 import { LoginForm } from "./LoginForm";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { MediaLibrary } from "./MediaLibrary/MediaLibrary";
 import { MediaItems } from "./MediaLibrary/MediaItems";
 import { ShowSeasons } from "./MediaLibrary/ShowSeasons";
 import { SeasonEpisodes } from "./MediaLibrary/ShowEpisodes";
 import { EpisodePlayer } from "./MediaLibrary/StreamEpisodes";
-import { JellyfinApiProvider } from "./ApiConfig/ApiContext";
+import { JellyfinApiProvider, useJellyfinApi } from "./ApiConfig/ApiContext";
+import type { ReactNode } from "react";
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { token } = useJellyfinApi();
+  if (!token) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
     <JellyfinApiProvider>
       <Routes>
         <Route path="/" element={<LoginForm />} />
-        <Route path="/library" element={<MediaLibrary />} />
-        <Route path="/library/:parentId" element={<MediaItems />} />
-        <Route path="/item/:id" element={<ShowSeasons />} />
-        <Route path="/item/:id/:seasonId" element={<SeasonEpisodes />} />
-        <Route path="/episode/:episodeId" element={<EpisodePlayer />} />
+        <Route path="/library" element={<ProtectedRoute><MediaLibrary /></ProtectedRoute>} />
+        <Route path="/library/:parentId" element={<ProtectedRoute><MediaItems /></ProtectedRoute>} />
+        <Route path="/item/:id" element={<ProtectedRoute><ShowSeasons /></ProtectedRoute>} />
+        <Route path="/item/:id/:seasonId" element={<ProtectedRoute><SeasonEpisodes /></ProtectedRoute>} />
+        <Route path="/episode/:episodeId" element={<ProtectedRoute><EpisodePlayer /></ProtectedRoute>} />
       </Routes>
     </JellyfinApiProvider>
   );
