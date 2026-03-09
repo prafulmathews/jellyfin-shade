@@ -33,7 +33,6 @@ export function EpisodePlayer() {
   const { api, token } = useJellyfinApi();
   const { episodeId } = useParams();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [introTimestamps, setIntroTimestamps] =
     useState<IntroTimestamps | null>(null);
@@ -276,7 +275,7 @@ export function EpisodePlayer() {
   if (!videoUrl) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
-        {error || "Preparing video..."}
+        Preparing video...
       </div>
     );
   }
