@@ -5,12 +5,22 @@ import { Button } from "@/components/ui/button";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 
+interface IntroTimestamps {
+  IntroStart: number;
+  IntroEnd: number;
+  ShowSkipPromptAt: number;
+  HideSkipPromptAt: number;
+  Valid: boolean;
+}
+
 export function EpisodePlayer() {
   const { api, token } = useJellyfinApi();
   const { episodeId } = useParams();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
+  const [introTimestamps, setIntroTimestamps] = useState<IntroTimestamps | null>(null);
+  const [showSkipIntro, setShowSkipIntro] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const userId = localStorage.getItem("userId");
 
@@ -36,6 +46,26 @@ export function EpisodePlayer() {
     };
 
     fetchStreamUrl();
+  }, [token, episodeId]);
+
+  // Step 1.5: Fetch intro timestamps (Intro Skipper plugin)
+  useEffect(() => {
+    if (!token || !episodeId) return;
+
+    const fetchIntro = async () => {
+      try {
+        const res = await fetch(`/Episode/${episodeId}/IntroTimestamps/v1`, {
+          headers: { Authorization: `MediaBrowser Token="${token}"` },
+        });
+        if (!res.ok) return; // plugin not installed or no intro data
+        const data: IntroTimestamps = await res.json();
+        if (data.Valid) setIntroTimestamps(data);
+      } catch {
+        // silently ignore — intro skip is optional
+      }
+    };
+
+    fetchIntro();
   }, [token, episodeId]);
 
   // Step 2: Resume from saved position
@@ -139,6 +169,20 @@ export function EpisodePlayer() {
     return () => video.removeEventListener("ended", handleEnded);
   }, [api, episodeId, videoReady]);
 
+  // Step 5: Show/hide skip intro button based on playback position
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !introTimestamps || !videoReady) return;
+
+    const handleTimeUpdate = () => {
+      const t = video.currentTime;
+      setShowSkipIntro(t >= introTimestamps.ShowSkipPromptAt && t < introTimestamps.HideSkipPromptAt);
+    };
+
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [introTimestamps, videoReady]);
+
   // --- UI Rendering ---
   if (!videoUrl) {
     return (
@@ -158,6 +202,18 @@ export function EpisodePlayer() {
           ← Back
         </Button>
       </Link>
+
+      {showSkipIntro && introTimestamps && (
+        <Button
+          variant="secondary"
+          className="absolute bottom-24 right-8 z-10 text-sm font-semibold px-5 py-2 border border-white/30"
+          onClick={() => {
+            if (videoRef.current) videoRef.current.currentTime = introTimestamps.IntroEnd;
+          }}
+        >
+          Skip Intro
+        </Button>
+      )}
 
       <video
         key={episodeId}
