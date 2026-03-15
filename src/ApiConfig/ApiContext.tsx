@@ -45,15 +45,15 @@ export const JellyfinApiProvider: React.FC<Props> = ({
   });
 
   const [token, setTokenState] = useState<string | null>(
-    sessionStorage.getItem("jellyfin-token"),
+    localStorage.getItem("jellyfin-token"),
   );
 
   const setToken = (token: string | null) => {
     setTokenState(token);
     if (token) {
-      sessionStorage.setItem("jellyfin-token", token);
+      localStorage.setItem("jellyfin-token", token);
     } else {
-      sessionStorage.removeItem("jellyfin-token");
+      localStorage.removeItem("jellyfin-token");
     }
   };
 
