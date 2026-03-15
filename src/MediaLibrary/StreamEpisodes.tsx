@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useJellyfinApi } from "../ApiConfig/ApiContext";
 import { Button } from "@/components/ui/button";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
+import { getTvShowsApi } from "@jellyfin/sdk/lib/utils/api/tv-shows-api";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 import type { ItemFields } from "@jellyfin/sdk/lib/generated-client";
 import {
@@ -29,10 +30,20 @@ function formatTime(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+interface NextEpisodeInfo {
+  id: string;
+  name: string;
+  indexNumber?: number;
+}
+
 export function EpisodePlayer() {
   const { api, token } = useJellyfinApi();
   const { episodeId } = useParams();
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const videoUrl = token && episodeId
+    ? `http://100.64.128.110:4242/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`
+    : null;
+  const [error, setError] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [introTimestamps, setIntroTimestamps] =
     useState<IntroTimestamps | null>(null);
@@ -44,6 +55,7 @@ export function EpisodePlayer() {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [nextEpisode, setNextEpisode] = useState<NextEpisodeInfo | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,13 +86,14 @@ export function EpisodePlayer() {
     if (node) setVideoReady(true);
   };
 
-  // Step 1: Construct stream URL
+  // Reset playback state when episode changes
   useEffect(() => {
-    if (!token || !episodeId) return;
-    setVideoUrl(
-      `http://100.64.128.110:4242/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`,
-    );
-  }, [token, episodeId]);
+    setCurrentTime(0);
+    setDuration(0);
+    setIntroTimestamps(null);
+    setShowSkipIntro(false);
+    setNextEpisode(null);
+  }, [episodeId]);
 
   // Step 1.5: Detect intro from MP4 chapter metadata (indexed by Jellyfin)
   useEffect(() => {
@@ -106,6 +119,47 @@ export function EpisodePlayer() {
     };
     fetchIntro();
   }, [api, episodeId]);
+
+  // Step 1.6: Find next episode in the season
+  useEffect(() => {
+    if (!api || !episodeId || !userId) return;
+    let cancelled = false;
+    const fetchNextEpisode = async () => {
+      try {
+        const res = await getItemsApi(api).getItems({
+          ids: [episodeId],
+          userId,
+        });
+        if (cancelled) return;
+        const ep = res.data.Items?.[0];
+        if (!ep?.SeriesId || !ep?.SeasonId) return;
+
+        const seasonRes = await getTvShowsApi(api).getEpisodes({
+          seriesId: ep.SeriesId,
+          seasonId: ep.SeasonId,
+          userId,
+        });
+        if (cancelled) return;
+
+        const episodes = seasonRes.data.Items ?? [];
+        const currentIdx = episodes.findIndex((e) => e.Id === episodeId);
+        if (currentIdx === -1 || currentIdx === episodes.length - 1) return;
+
+        const next = episodes[currentIdx + 1];
+        if (next?.Id) {
+          setNextEpisode({
+            id: next.Id,
+            name: next.Name ?? "Next Episode",
+            indexNumber: next.IndexNumber ?? undefined,
+          });
+        }
+      } catch {
+        // ignore — next episode is optional
+      }
+    };
+    fetchNextEpisode();
+    return () => { cancelled = true; };
+  }, [api, episodeId, userId]);
 
   // Step 2: Resume from saved position
   useEffect(() => {
@@ -234,7 +288,7 @@ export function EpisodePlayer() {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
     };
-  }, [videoReady]);
+  }, [videoReady, episodeId]);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -271,11 +325,14 @@ export function EpisodePlayer() {
     setIsMuted(val === 0);
   };
 
+  const showNextEpisodeButton =
+    nextEpisode !== null && duration > 0 && duration - currentTime <= 90 && currentTime > 0;
+
   // --- UI Rendering ---
   if (!videoUrl) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Preparing video...
+        {error || "Preparing video..."}
       </div>
     );
   }
@@ -300,12 +357,7 @@ export function EpisodePlayer() {
         className="relative bg-black flex flex-col rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl"
         style={
           isFullscreen
-            ? {
-                width: "100vw",
-                height: "100vh",
-                borderRadius: 0,
-                cursor: controlsVisible ? "default" : "none",
-              }
+            ? { width: "100vw", height: "100vh", borderRadius: 0, cursor: controlsVisible ? "default" : "none" }
             : { maxWidth: "90vw" }
         }
       >
@@ -321,6 +373,22 @@ export function EpisodePlayer() {
             }}
           >
             Skip Intro
+          </Button>
+        )}
+
+        {/* Next Episode */}
+        {showNextEpisodeButton && nextEpisode && (
+          <Button
+            variant="outline"
+            size="sm"
+            className={`absolute right-4 z-50 bg-black/60 backdrop-blur-sm border-white/20 text-white hover:bg-white/10 hover:text-white font-medium flex items-center gap-2 ${showSkipIntro ? "bottom-32" : "bottom-20"}`}
+            onClick={() => navigate(`/episode/${nextEpisode.id}`, { replace: true })}
+          >
+            {nextEpisode.indexNumber ? `Next: E${nextEpisode.indexNumber}` : "Next Episode"}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5,3 19,12 5,21" />
+              <rect x="19" y="3" width="2" height="18" rx="1" />
+            </svg>
           </Button>
         )}
 
@@ -347,9 +415,7 @@ export function EpisodePlayer() {
         {/* Controls */}
         <div
           className={`w-full bg-black/80 backdrop-blur-sm border-t border-white/10 px-4 pb-4 pt-3 flex flex-col gap-3 transition-opacity duration-300 ${
-            isFullscreen && !controlsVisible
-              ? "opacity-0 pointer-events-none"
-              : "opacity-100"
+            isFullscreen && !controlsVisible ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
         >
           {/* Progress bar */}
