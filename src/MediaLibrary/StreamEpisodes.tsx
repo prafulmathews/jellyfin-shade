@@ -43,7 +43,7 @@ export function EpisodePlayer() {
   const videoUrl = token && episodeId
     ? `http://100.64.128.110:4242/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`
     : null;
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [introTimestamps, setIntroTimestamps] =
     useState<IntroTimestamps | null>(null);

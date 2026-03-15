@@ -14,14 +14,11 @@ interface JellyfinContextValue {
 const JellyfinApiContext = createContext<JellyfinContextValue | null>(null);
 
 interface Props {
-  serverUrl: string;
   children: ReactNode;
 }
 
-export const JellyfinApiProvider: React.FC<Props> = ({
-  serverUrl,
-  children,
-}) => {
+export const JellyfinApiProvider: React.FC<Props> = ({ children }) => {
+  const serverUrl = localStorage.getItem("server-url") ?? "";
   // ✅ Create Jellyfin ONCE using lazy init (NO effect)
   const [jellyfin] = useState(() => {
     const key = "jellyfin-device-id";
