@@ -11,6 +11,7 @@ import {
   Minimize2,
   Play,
   Pause,
+  SkipForward,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -479,7 +480,16 @@ export function EpisodePlayer() {
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
+              {nextEpisode && (
+                <button
+                  onClick={() => navigate(`/episode/${nextEpisode.id}`, { replace: true })}
+                  title={nextEpisode.indexNumber ? `Next: E${nextEpisode.indexNumber}` : "Next Episode"}
+                  className="p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <SkipForward size={16} />
+                </button>
+              )}
               <button
                 onClick={toggleFullscreen}
                 className="p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors"
