@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import { useJellyfinApi } from "../ApiConfig/ApiContext";
 import { Button } from "@/components/ui/button";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
-import { getTvShowsApi } from "@jellyfin/sdk/lib/utils/api/tv-shows-api";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 import type { ItemFields } from "@jellyfin/sdk/lib/generated-client";
 import {
@@ -11,7 +10,6 @@ import {
   Minimize2,
   Play,
   Pause,
-  SkipForward,
   Volume2,
   VolumeX,
   Captions,
@@ -38,21 +36,15 @@ function formatTime(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-interface NextEpisodeInfo {
-  id: string;
-  name: string;
-  indexNumber?: number;
-}
-
-export function EpisodePlayer() {
+export function MoviePlayer() {
   const { api, token } = useJellyfinApi();
-  const { episodeId } = useParams();
-  const navigate = useNavigate();
+  const { movieId } = useParams();
   const serverUrl = localStorage.getItem("server-url") ?? "";
-  const videoUrl = token && episodeId
-    ? `${serverUrl}/Videos/${episodeId}/stream.mp4?static=true&api_key=${token}`
-    : null;
-  const [error] = useState<string | null>(null);
+  const videoUrl =
+    token && movieId
+      ? `${serverUrl}/Videos/${movieId}/stream.mp4?static=true&api_key=${token}`
+      : null;
+
   const [videoReady, setVideoReady] = useState(false);
   const [introTimestamps, setIntroTimestamps] =
     useState<IntroTimestamps | null>(null);
@@ -61,14 +53,15 @@ export function EpisodePlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [apiDuration, setApiDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [nextEpisode, setNextEpisode] = useState<NextEpisodeInfo | null>(null);
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
   const [selectedSubtitle, setSelectedSubtitle] = useState<number | null>(null);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitleBlobUrl, setSubtitleBlobUrl] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,37 +87,34 @@ export function EpisodePlayer() {
     };
   }, [isFullscreen]);
 
-  const videoCallbackRef = (node: HTMLVideoElement | null) => {
+  const videoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
     videoRef.current = node;
     if (node) setVideoReady(true);
-  };
+  }, []);
 
-  // Reset playback state when episode changes
   useEffect(() => {
     setCurrentTime(0);
     setDuration(0);
     setIntroTimestamps(null);
     setShowSkipIntro(false);
-    setNextEpisode(null);
     setSubtitles([]);
     setSelectedSubtitle(null);
     setShowSubtitleMenu(false);
     setSubtitleBlobUrl(null);
-  }, [episodeId]);
+  }, [movieId]);
 
-  // Step 1.5: Detect intro from MP4 chapter metadata (indexed by Jellyfin)
+  // Detect intro from chapter metadata
   useEffect(() => {
-    if (!api || !episodeId) return;
+    if (!api || !movieId) return;
     const fetchIntro = async () => {
       try {
         const res = await getItemsApi(api).getItems({
-          ids: [episodeId],
+          ids: [movieId],
           fields: ["Chapters", "MediaStreams"] as ItemFields[],
         });
         const item = res.data.Items?.[0];
         const chapters = item?.Chapters ?? [];
 
-        // Subtitle tracks
         const subs = (item?.MediaStreams ?? [])
           .filter(s => s.Type === "Subtitle")
           .map(s => ({
@@ -142,100 +132,57 @@ export function EpisodePlayer() {
           end: (chapters[introIdx + 1].StartPositionTicks ?? 0) / 10_000_000,
         });
       } catch {
-        // silently ignore — chapter data is optional
+        // chapter data is optional
       }
     };
     fetchIntro();
-  }, [api, episodeId]);
+  }, [api, movieId]);
 
-  // Step 1.6: Find next episode in the season
+  // Resume from saved position
   useEffect(() => {
-    if (!api || !episodeId || !userId) return;
-    let cancelled = false;
-    const fetchNextEpisode = async () => {
-      try {
-        const res = await getItemsApi(api).getItems({
-          ids: [episodeId],
-          userId,
-        });
-        if (cancelled) return;
-        const ep = res.data.Items?.[0];
-        if (!ep?.SeriesId || !ep?.SeasonId) return;
-
-        const seasonRes = await getTvShowsApi(api).getEpisodes({
-          seriesId: ep.SeriesId,
-          seasonId: ep.SeasonId,
-          userId,
-        });
-        if (cancelled) return;
-
-        const episodes = seasonRes.data.Items ?? [];
-        const currentIdx = episodes.findIndex((e) => e.Id === episodeId);
-        if (currentIdx === -1 || currentIdx === episodes.length - 1) return;
-
-        const next = episodes[currentIdx + 1];
-        if (next?.Id) {
-          setNextEpisode({
-            id: next.Id,
-            name: next.Name ?? "Next Episode",
-            indexNumber: next.IndexNumber ?? undefined,
-          });
-        }
-      } catch {
-        // ignore — next episode is optional
-      }
-    };
-    fetchNextEpisode();
-    return () => { cancelled = true; };
-  }, [api, episodeId, userId]);
-
-  // Step 2: Resume from saved position
-  useEffect(() => {
-    if (!api || !token || !userId || !episodeId || !videoReady) return;
-
-    const fetchResumeTime = async (): Promise<number> => {
-      try {
-        const res = await getItemsApi(api).getItems({
-          userId,
-          ids: [episodeId],
-        });
-        const ticks = res.data.Items?.[0]?.UserData?.PlaybackPositionTicks ?? 0;
-        return ticks / 10_000_000;
-      } catch {
-        return 0;
-      }
-    };
+    if (!api || !token || !userId || !movieId || !videoReady) return;
 
     const setupResume = async () => {
       const video = videoRef.current;
       if (!video) return;
-      const resumeSeconds = await fetchResumeTime();
-      const seekToPosition = () => {
-        if (resumeSeconds > 3 && resumeSeconds < video.duration - 5)
-          video.currentTime = resumeSeconds;
-      };
-      if (video.readyState >= 1) {
-        seekToPosition();
-      } else {
-        video.addEventListener("loadedmetadata", seekToPosition);
-        return () =>
-          video.removeEventListener("loadedmetadata", seekToPosition);
+      try {
+        const res = await getItemsApi(api).getItems({
+          userId,
+          ids: [movieId],
+        });
+        const item = res.data.Items?.[0];
+        const runtimeTicks = item?.RunTimeTicks ?? 0;
+        if (runtimeTicks > 0) setApiDuration(runtimeTicks / 10_000_000);
+
+        const resumeSeconds =
+          (item?.UserData?.PlaybackPositionTicks ?? 0) / 10_000_000;
+        const seekToPosition = () => {
+          if (resumeSeconds > 3 && resumeSeconds < video.duration - 5)
+            video.currentTime = resumeSeconds;
+        };
+        if (video.readyState >= 1) {
+          seekToPosition();
+        } else {
+          video.addEventListener("loadedmetadata", seekToPosition);
+        }
+      } catch {
+        // ignore
       }
     };
 
     setupResume();
-  }, [api, token, userId, episodeId, videoReady]);
+  }, [api, token, userId, movieId, videoReady]);
 
-  // Step 3: Periodically report playback progress to Jellyfin
+  // Report playback progress
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !episodeId || !token || !videoReady || !api) return;
+    if (!video || !movieId || !token || !videoReady || !api) return;
 
     const sendProgress = async () => {
       try {
         await getPlaystateApi(api).reportPlaybackProgress({
           playbackProgressInfo: {
-            ItemId: episodeId,
+            ItemId: movieId,
             PositionTicks: Math.floor(video.currentTime * 10_000_000),
             IsPaused: video.paused,
           },
@@ -249,18 +196,18 @@ export function EpisodePlayer() {
 
     video.addEventListener("timeupdate", handleTimeUpdate);
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
-  }, [api, token, episodeId, videoReady]);
+  }, [api, token, movieId, videoReady]);
 
-  // Step 4: Notify Jellyfin on playback end
+  // Notify Jellyfin on playback end
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !episodeId || !videoReady || !api) return;
+    if (!video || !movieId || !videoReady || !api) return;
 
     const handleEnded = async () => {
       try {
         await getPlaystateApi(api).reportPlaybackStopped({
           playbackStopInfo: {
-            ItemId: episodeId,
+            ItemId: movieId,
             PositionTicks: Math.floor(video.currentTime * 10_000_000),
           },
         });
@@ -269,9 +216,9 @@ export function EpisodePlayer() {
 
     video.addEventListener("ended", handleEnded);
     return () => video.removeEventListener("ended", handleEnded);
-  }, [api, episodeId, videoReady]);
+  }, [api, movieId, videoReady]);
 
-  // Step 5a: Track fullscreen state
+  // Track fullscreen state
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(document.fullscreenElement === wrapperRef.current);
@@ -281,7 +228,7 @@ export function EpisodePlayer() {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Step 5b: Show/hide Skip Intro button
+  // Show/hide Skip Intro button
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !introTimestamps || !videoReady) return;
@@ -298,11 +245,11 @@ export function EpisodePlayer() {
   // Fetch subtitle VTT as blob URL to avoid cross-origin <track> restrictions
   useEffect(() => {
     let blobUrl: string | null = null;
-    if (selectedSubtitle === null || !token || !episodeId) {
+    if (selectedSubtitle === null || !token || !movieId) {
       setSubtitleBlobUrl(null);
       return;
     }
-    fetch(`${serverUrl}/Videos/${episodeId}/${episodeId}/Subtitles/${selectedSubtitle}/0/Stream.vtt?api_key=${token}`)
+    fetch(`${serverUrl}/Videos/${movieId}/${movieId}/Subtitles/${selectedSubtitle}/0/Stream.vtt?api_key=${token}`)
       .then(r => r.text())
       .then(text => {
         blobUrl = URL.createObjectURL(new Blob([text], { type: "text/vtt" }));
@@ -313,7 +260,7 @@ export function EpisodePlayer() {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
       setSubtitleBlobUrl(null);
     };
-  }, [selectedSubtitle, token, episodeId, serverUrl]);
+  }, [selectedSubtitle, token, movieId, serverUrl]);
 
   // Subtitle track activation
   useEffect(() => {
@@ -331,7 +278,7 @@ export function EpisodePlayer() {
     return () => video.textTracks.removeEventListener("addtrack", activate);
   }, [subtitleBlobUrl, videoReady]);
 
-  // Step 6: Custom player state
+  // Custom player state
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoReady) return;
@@ -352,12 +299,16 @@ export function EpisodePlayer() {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
     };
-  }, [videoReady, episodeId]);
+  }, [videoReady, movieId]);
 
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    v.paused ? v.play() : v.pause();
+    if (v.paused) {
+      v.play().catch((err) => console.error("play() failed:", err));
+    } else {
+      v.pause();
+    }
   };
 
   const toggleFullscreen = () => {
@@ -389,14 +340,13 @@ export function EpisodePlayer() {
     setIsMuted(val === 0);
   };
 
-  const showNextEpisodeButton =
-    nextEpisode !== null && duration > 0 && duration - currentTime <= 90 && currentTime > 0;
+  // Prefer the API-supplied runtime; fall back to what the video element reports
+  const displayDuration = apiDuration || duration;
 
-  // --- UI Rendering ---
   if (!videoUrl) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
-        {error || "Preparing video..."}
+        Preparing video...
       </div>
     );
   }
@@ -421,7 +371,12 @@ export function EpisodePlayer() {
         className="relative bg-black flex flex-col rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl"
         style={
           isFullscreen
-            ? { width: "100vw", height: "100vh", borderRadius: 0, cursor: controlsVisible ? "default" : "none" }
+            ? {
+                width: "100vw",
+                height: "100vh",
+                borderRadius: 0,
+                cursor: controlsVisible ? "default" : "none",
+              }
             : { maxWidth: "90vw" }
         }
       >
@@ -440,26 +395,12 @@ export function EpisodePlayer() {
           </Button>
         )}
 
-        {/* Next Episode */}
-        {showNextEpisodeButton && nextEpisode && (
-          <Button
-            variant="outline"
-            size="sm"
-            className={`absolute right-4 z-50 bg-black/60 backdrop-blur-sm border-white/20 text-white hover:bg-white/10 hover:text-white font-medium flex items-center gap-2 ${showSkipIntro ? "bottom-32" : "bottom-20"}`}
-            onClick={() => navigate(`/episode/${nextEpisode.id}`, { replace: true })}
-          >
-            {nextEpisode.indexNumber ? `Next: E${nextEpisode.indexNumber}` : "Next Episode"}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5,3 19,12 5,21" />
-              <rect x="19" y="3" width="2" height="18" rx="1" />
-            </svg>
-          </Button>
-        )}
-
         {/* Video */}
         <video
-          key={episodeId}
+          key={movieId}
           ref={videoCallbackRef}
+          src={videoUrl}
+          preload="auto"
           autoPlay
           onClick={togglePlay}
           onDoubleClick={toggleFullscreen}
@@ -485,7 +426,6 @@ export function EpisodePlayer() {
             cursor: "pointer",
           }}
         >
-          <source src={videoUrl} type="video/mp4" />
           {subtitleBlobUrl && (
             <track
               key={subtitleBlobUrl}
@@ -501,28 +441,32 @@ export function EpisodePlayer() {
           className={`w-full bg-black/80 backdrop-blur-sm border-t border-white/10 px-4 pb-4 pt-3 flex flex-col gap-3 transition-opacity duration-300 ${
             isFullscreen ? "absolute bottom-0 left-0 right-0 z-40" : ""
           } ${
-            isFullscreen && !controlsVisible ? "opacity-0 pointer-events-none" : "opacity-100"
+            isFullscreen && !controlsVisible
+              ? "opacity-0 pointer-events-none"
+              : "opacity-100"
           }`}
         >
           {/* Progress bar */}
           <div className="relative w-full flex items-center group">
-            {introTimestamps && duration > 0 && (
+            {introTimestamps && displayDuration > 0 && (
               <div
                 className="absolute w-0.5 h-3 bg-yellow-400/80 rounded-full pointer-events-none z-10"
-                style={{ left: `${(introTimestamps.end / duration) * 100}%` }}
+                style={{
+                  left: `${(introTimestamps.end / displayDuration) * 100}%`,
+                }}
                 title="Intro ends here"
               />
             )}
             <input
               type="range"
               min={0}
-              max={duration || 0}
+              max={displayDuration || 0}
               step={0.1}
               value={currentTime}
               onChange={handleSeek}
               className="w-full h-1.5 rounded-full accent-white cursor-pointer appearance-none bg-white/20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:opacity-0 group-hover:[&::-webkit-slider-thumb]:opacity-100 [&::-webkit-slider-thumb]:transition-opacity"
               style={{
-                background: `linear-gradient(to right, white ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.2) ${(currentTime / (duration || 1)) * 100}%)`,
+                background: `linear-gradient(to right, white ${(currentTime / (displayDuration || 1)) * 100}%, rgba(255,255,255,0.2) ${(currentTime / (displayDuration || 1)) * 100}%)`,
               }}
             />
           </div>
@@ -562,19 +506,10 @@ export function EpisodePlayer() {
             </div>
 
             <span className="text-xs text-white/50 tabular-nums font-mono ml-1">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatTime(currentTime)} / {formatTime(displayDuration)}
             </span>
 
             <div className="ml-auto flex items-center gap-1">
-              {nextEpisode && (
-                <button
-                  onClick={() => navigate(`/episode/${nextEpisode.id}`, { replace: true })}
-                  title={nextEpisode.indexNumber ? `Next: E${nextEpisode.indexNumber}` : "Next Episode"}
-                  className="p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  <SkipForward size={16} />
-                </button>
-              )}
               {subtitles.length > 0 && (
                 <div className="relative">
                   {showSubtitleMenu && (

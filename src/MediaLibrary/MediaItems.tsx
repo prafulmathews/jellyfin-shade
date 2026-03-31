@@ -105,21 +105,24 @@ export function MediaItems() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {items.map((item) => (
-          <Link key={item.Id} to={`/item/${item.Id}`}>
-            <Card
-              key={item.Id}
-              className="cursor-pointer transition-all hover:shadow-md"
-            >
-              <CardHeader>
-                <CardTitle className="truncate">{item.Name}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                <p>Type: {item.Type}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {items.map((item) => {
+          const href =
+            item.Type === "Movie"
+              ? `/movie/${item.Id}`
+              : `/item/${item.Id}`;
+          return (
+            <Link key={item.Id} to={href}>
+              <Card className="cursor-pointer transition-all hover:shadow-md">
+                <CardHeader>
+                  <CardTitle className="truncate">{item.Name}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  <p>Type: {item.Type}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ interface Props {
 }
 
 export const JellyfinApiProvider: React.FC<Props> = ({ children }) => {
+  const serverUrl = localStorage.getItem("server-url") ?? "";
   // ✅ Create Jellyfin ONCE using lazy init (NO effect)
   const [jellyfin] = useState(() => {
     const key = "jellyfin-device-id";
@@ -41,22 +42,22 @@ export const JellyfinApiProvider: React.FC<Props> = ({ children }) => {
   });
 
   const [token, setTokenState] = useState<string | null>(
-    sessionStorage.getItem("jellyfin-token"),
+    localStorage.getItem("jellyfin-token"),
   );
 
   const setToken = (token: string | null) => {
     setTokenState(token);
     if (token) {
-      sessionStorage.setItem("jellyfin-token", token);
+      localStorage.setItem("jellyfin-token", token);
     } else {
-      sessionStorage.removeItem("jellyfin-token");
+      localStorage.removeItem("jellyfin-token");
     }
   };
 
   // ✅ Derived value (NO state, NO effect)
   const api = useMemo<Api | null>(() => {
-    return jellyfin.createApi("/", token ?? undefined);
-  }, [jellyfin, token]);
+    return jellyfin.createApi(serverUrl, token ?? undefined);
+  }, [jellyfin, serverUrl, token]);
 
   return (
     <JellyfinApiContext.Provider value={{ jellyfin, api, token, setToken }}>
