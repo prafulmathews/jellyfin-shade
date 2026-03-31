@@ -343,20 +343,34 @@ export function MoviePlayer() {
           autoPlay
           onClick={togglePlay}
           onDoubleClick={toggleFullscreen}
-          style={{
+          style={isFullscreen ? {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "black",
+            objectFit: "contain",
+            objectPosition: "center",
+            cursor: controlsVisible ? "pointer" : "none",
+          } : {
             width: "100%",
             flex: 1,
             minHeight: 0,
-            maxHeight: isFullscreen ? "calc(100vh - 72px)" : "85vh",
+            maxHeight: "85vh",
             background: "black",
             display: "block",
-            cursor: isFullscreen && !controlsVisible ? "none" : "pointer",
+            objectFit: "contain",
+            objectPosition: "center",
+            cursor: "pointer",
           }}
         />
 
         {/* Controls */}
         <div
           className={`w-full bg-black/80 backdrop-blur-sm border-t border-white/10 px-4 pb-4 pt-3 flex flex-col gap-3 transition-opacity duration-300 ${
+            isFullscreen ? "absolute bottom-0 left-0 right-0 z-40" : ""
+          } ${
             isFullscreen && !controlsVisible
               ? "opacity-0 pointer-events-none"
               : "opacity-100"

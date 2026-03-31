@@ -408,6 +408,8 @@ export function EpisodePlayer() {
             width: "100%",
             height: "100%",
             background: "black",
+            objectFit: "contain",
+            objectPosition: "center",
             cursor: controlsVisible ? "pointer" : "none",
           } : {
             width: "100%",
@@ -416,6 +418,8 @@ export function EpisodePlayer() {
             maxHeight: "85vh",
             background: "black",
             display: "block",
+            objectFit: "contain",
+            objectPosition: "center",
             cursor: "pointer",
           }}
         >
