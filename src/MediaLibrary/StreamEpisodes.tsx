@@ -401,14 +401,22 @@ export function EpisodePlayer() {
           autoPlay
           onClick={togglePlay}
           onDoubleClick={toggleFullscreen}
-          style={{
+          style={isFullscreen ? {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "black",
+            cursor: controlsVisible ? "pointer" : "none",
+          } : {
             width: "100%",
             flex: 1,
             minHeight: 0,
-            maxHeight: isFullscreen ? "100vh" : "85vh",
+            maxHeight: "85vh",
             background: "black",
             display: "block",
-            cursor: isFullscreen && !controlsVisible ? "none" : "pointer",
+            cursor: "pointer",
           }}
         >
           <source src={videoUrl} type="video/mp4" />
