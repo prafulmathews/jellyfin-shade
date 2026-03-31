@@ -14,7 +14,14 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  Captions,
 } from "lucide-react";
+
+interface SubtitleTrack {
+  index: number;
+  displayTitle: string;
+  language?: string;
+}
 
 interface IntroTimestamps {
   start: number;
@@ -58,6 +65,10 @@ export function EpisodePlayer() {
   const [isMuted, setIsMuted] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [nextEpisode, setNextEpisode] = useState<NextEpisodeInfo | null>(null);
+  const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<number | null>(null);
+  const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
+  const [subtitleBlobUrl, setSubtitleBlobUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,6 +106,10 @@ export function EpisodePlayer() {
     setIntroTimestamps(null);
     setShowSkipIntro(false);
     setNextEpisode(null);
+    setSubtitles([]);
+    setSelectedSubtitle(null);
+    setShowSubtitleMenu(false);
+    setSubtitleBlobUrl(null);
   }, [episodeId]);
 
   // Step 1.5: Detect intro from MP4 chapter metadata (indexed by Jellyfin)
@@ -104,9 +119,20 @@ export function EpisodePlayer() {
       try {
         const res = await getItemsApi(api).getItems({
           ids: [episodeId],
-          fields: ["Chapters"] as ItemFields[],
+          fields: ["Chapters", "MediaStreams"] as ItemFields[],
         });
-        const chapters = res.data.Items?.[0]?.Chapters ?? [];
+        const item = res.data.Items?.[0];
+        const chapters = item?.Chapters ?? [];
+
+        // Subtitle tracks
+        const subs = (item?.MediaStreams ?? [])
+          .filter(s => s.Type === "Subtitle")
+          .map(s => ({
+            index: s.Index!,
+            displayTitle: s.DisplayTitle ?? s.Language ?? `Track ${s.Index}`,
+            language: s.Language ?? undefined,
+          }));
+        setSubtitles(subs);
         const introIdx = chapters.findIndex((c) =>
           /opening|intro|op\b/i.test(c.Name ?? ""),
         );
@@ -269,6 +295,42 @@ export function EpisodePlayer() {
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
   }, [introTimestamps, videoReady]);
 
+  // Fetch subtitle VTT as blob URL to avoid cross-origin <track> restrictions
+  useEffect(() => {
+    let blobUrl: string | null = null;
+    if (selectedSubtitle === null || !token || !episodeId) {
+      setSubtitleBlobUrl(null);
+      return;
+    }
+    fetch(`${serverUrl}/Videos/${episodeId}/${episodeId}/Subtitles/${selectedSubtitle}/0/Stream.vtt?api_key=${token}`)
+      .then(r => r.text())
+      .then(text => {
+        blobUrl = URL.createObjectURL(new Blob([text], { type: "text/vtt" }));
+        setSubtitleBlobUrl(blobUrl);
+      })
+      .catch(() => {});
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      setSubtitleBlobUrl(null);
+    };
+  }, [selectedSubtitle, token, episodeId, serverUrl]);
+
+  // Subtitle track activation
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const activate = () => {
+      Array.from(video.textTracks).forEach(t => {
+        t.mode = subtitleBlobUrl !== null && (t.kind === "subtitles" || t.kind === "captions")
+          ? "showing"
+          : "disabled";
+      });
+    };
+    activate();
+    video.textTracks.addEventListener("addtrack", activate);
+    return () => video.textTracks.removeEventListener("addtrack", activate);
+  }, [subtitleBlobUrl, videoReady]);
+
   // Step 6: Custom player state
   useEffect(() => {
     const video = videoRef.current;
@@ -424,6 +486,14 @@ export function EpisodePlayer() {
           }}
         >
           <source src={videoUrl} type="video/mp4" />
+          {subtitleBlobUrl && (
+            <track
+              key={subtitleBlobUrl}
+              kind="subtitles"
+              src={subtitleBlobUrl}
+              default
+            />
+          )}
         </video>
 
         {/* Controls */}
@@ -504,6 +574,42 @@ export function EpisodePlayer() {
                 >
                   <SkipForward size={16} />
                 </button>
+              )}
+              {subtitles.length > 0 && (
+                <div className="relative">
+                  {showSubtitleMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowSubtitleMenu(false)}
+                      />
+                      <div className="absolute bottom-8 right-0 z-50 bg-black/95 border border-white/20 rounded-lg py-1 min-w-36 shadow-xl">
+                        <button
+                          onClick={() => { setSelectedSubtitle(null); setShowSubtitleMenu(false); }}
+                          className={`w-full text-left px-3 py-1.5 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === null ? "text-white" : "text-white/50"}`}
+                        >
+                          Off
+                        </button>
+                        {subtitles.map(sub => (
+                          <button
+                            key={sub.index}
+                            onClick={() => { setSelectedSubtitle(sub.index); setShowSubtitleMenu(false); }}
+                            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-white/10 transition-colors ${selectedSubtitle === sub.index ? "text-white" : "text-white/50"}`}
+                          >
+                            {sub.displayTitle}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setShowSubtitleMenu(prev => !prev)}
+                    title="Subtitles"
+                    className={`p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors ${selectedSubtitle !== null ? "text-white" : "text-white/50"}`}
+                  >
+                    <Captions size={16} />
+                  </button>
+                </div>
               )}
               <button
                 onClick={toggleFullscreen}
