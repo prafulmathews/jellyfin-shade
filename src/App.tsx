@@ -5,6 +5,7 @@ import { MediaItems } from "./MediaLibrary/MediaItems";
 import { ShowSeasons } from "./MediaLibrary/ShowSeasons";
 import { SeasonEpisodes } from "./MediaLibrary/ShowEpisodes";
 import { EpisodePlayer } from "./MediaLibrary/StreamEpisodes";
+import { MoviePlayer } from "./MediaLibrary/MoviePlayer";
 import { JellyfinApiProvider, useJellyfinApi } from "./ApiConfig/ApiContext";
 import type { ReactNode } from "react";
 
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/item/:id" element={<ProtectedRoute><ShowSeasons /></ProtectedRoute>} />
         <Route path="/item/:id/:seasonId" element={<ProtectedRoute><SeasonEpisodes /></ProtectedRoute>} />
         <Route path="/episode/:episodeId" element={<ProtectedRoute><EpisodePlayer /></ProtectedRoute>} />
+        <Route path="/movie/:movieId" element={<ProtectedRoute><MoviePlayer /></ProtectedRoute>} />
       </Routes>
     </JellyfinApiProvider>
   );
