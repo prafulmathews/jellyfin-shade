@@ -389,6 +389,27 @@ export function EpisodePlayer() {
     setIsMuted(val === 0);
   };
 
+  // Keyboard shortcuts: Space = play/pause, ArrowLeft/Right = ±5s
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      const v = videoRef.current;
+      if (!v) return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        v.paused ? v.play().catch(() => {}) : v.pause();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        v.currentTime = Math.max(0, v.currentTime - 5);
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        v.currentTime = Math.min(v.duration || 0, v.currentTime + 5);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const showNextEpisodeButton =
     nextEpisode !== null && duration > 0 && duration - currentTime <= 90 && currentTime > 0;
 
