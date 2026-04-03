@@ -69,6 +69,7 @@ export function EpisodePlayer() {
   const [selectedSubtitle, setSelectedSubtitle] = useState<number | null>(null);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitleBlobUrl, setSubtitleBlobUrl] = useState<string | null>(null);
+  const [itemTitle, setItemTitle] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +111,7 @@ export function EpisodePlayer() {
     setSelectedSubtitle(null);
     setShowSubtitleMenu(false);
     setSubtitleBlobUrl(null);
+    setItemTitle(null);
   }, [episodeId]);
 
   // Step 1.5: Detect intro from MP4 chapter metadata (indexed by Jellyfin)
@@ -122,6 +124,14 @@ export function EpisodePlayer() {
           fields: ["Chapters", "MediaStreams"] as ItemFields[],
         });
         const item = res.data.Items?.[0];
+        if (item) {
+          const parts: string[] = [];
+          if (item.SeriesName) parts.push(item.SeriesName);
+          if (item.ParentIndexNumber != null && item.IndexNumber != null)
+            parts.push(`S${item.ParentIndexNumber}E${item.IndexNumber}`);
+          if (item.Name) parts.push(item.Name);
+          setItemTitle(parts.join(" · ") || null);
+        }
         const chapters = item?.Chapters ?? [];
 
         // Subtitle tracks
@@ -585,6 +595,10 @@ export function EpisodePlayer() {
             <span className="text-xs text-white/50 tabular-nums font-mono ml-1">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
+
+            {itemTitle && (
+              <span className="text-xs text-white/60 truncate max-w-xs ml-2">{itemTitle}</span>
+            )}
 
             <div className="ml-auto flex items-center gap-1">
               {nextEpisode && (

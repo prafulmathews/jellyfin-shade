@@ -61,6 +61,7 @@ export function MoviePlayer() {
   const [selectedSubtitle, setSelectedSubtitle] = useState<number | null>(null);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitleBlobUrl, setSubtitleBlobUrl] = useState<string | null>(null);
+  const [itemName, setItemName] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -101,6 +102,7 @@ export function MoviePlayer() {
     setSelectedSubtitle(null);
     setShowSubtitleMenu(false);
     setSubtitleBlobUrl(null);
+    setItemName(null);
   }, [movieId]);
 
   // Detect intro from chapter metadata
@@ -113,6 +115,7 @@ export function MoviePlayer() {
           fields: ["Chapters", "MediaStreams"] as ItemFields[],
         });
         const item = res.data.Items?.[0];
+        if (item?.Name) setItemName(item.Name);
         const chapters = item?.Chapters ?? [];
 
         const subs = (item?.MediaStreams ?? [])
@@ -529,6 +532,10 @@ export function MoviePlayer() {
             <span className="text-xs text-white/50 tabular-nums font-mono ml-1">
               {formatTime(currentTime)} / {formatTime(displayDuration)}
             </span>
+
+            {itemName && (
+              <span className="text-xs text-white/60 truncate max-w-xs ml-2">{itemName}</span>
+            )}
 
             <div className="ml-auto flex items-center gap-1">
               {subtitles.length > 0 && (
