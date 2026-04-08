@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useJellyfinApi } from "../ApiConfig/ApiContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTvShowsApi } from "@jellyfin/sdk/lib/utils/api/tv-shows-api";
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
@@ -33,6 +33,7 @@ export function ShowSeasons() {
             "PrimaryImageAspectRatio",
             "CanDelete",
             "MediaSourceCount",
+            "ChildCount",
           ] as ItemFields[],
         });
         setSeasons(response.data.Items || []);
@@ -98,6 +99,19 @@ export function ShowSeasons() {
                     {season.Name || `Season ${season.IndexNumber}`}
                   </CardTitle>
                 </CardHeader>
+                {(season.ChildCount != null || season.UserData?.UnplayedItemCount != null) && (
+                  <CardContent className="pt-0">
+                    {season.ChildCount != null ? (
+                      <p className="text-sm text-muted-foreground">
+                        {season.ChildCount - (season.UserData?.UnplayedItemCount ?? 0)}/{season.ChildCount} watched
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {season.UserData?.UnplayedItemCount ?? 0} unwatched
+                      </p>
+                    )}
+                  </CardContent>
+                )}
               </Card>
             </Link>
           ) : null,
