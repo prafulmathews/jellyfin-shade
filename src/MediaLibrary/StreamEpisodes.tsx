@@ -592,6 +592,27 @@ export function EpisodePlayer() {
               />
             </div>
 
+            <button
+              onClick={() => {
+                const v = videoRef.current;
+                if (v) v.currentTime = Math.max(0, v.currentTime - 5);
+              }}
+              className="p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors text-xs font-mono tabular-nums"
+              title="Rewind 5 seconds"
+            >
+              -5s
+            </button>
+            <button
+              onClick={() => {
+                const v = videoRef.current;
+                if (v) v.currentTime = Math.min(v.duration || 0, v.currentTime + 5);
+              }}
+              className="p-1.5 rounded-md hover:bg-white/10 hover:text-white transition-colors text-xs font-mono tabular-nums"
+              title="Forward 5 seconds"
+            >
+              +5s
+            </button>
+
             <span className="text-xs text-white/50 tabular-nums font-mono ml-1">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
